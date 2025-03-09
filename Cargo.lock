@@ -415,6 +415,7 @@ dependencies = [
  "chrono",
  "ciborium",
  "ecdsa",
+ "hex",
  "k256",
  "serde",
  "sha256",
