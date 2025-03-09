@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+chrono = { version = "0.4.40", features = ["serde"] }
 ciborium = "0.2.2"
 serde = { version = "1.0.219", features = ["derive"] }
 sha256 = "1.6.0"
