@@ -1,6 +1,5 @@
 use ecdsa::{signature::Signer, Signature as ECDSASignature, SigningKey, VerifyingKey};
 use k256::Secp256k1;
-use rand::rngs::OsRng;
 use serde;
 use serde::{Deserialize, Serialize};
 

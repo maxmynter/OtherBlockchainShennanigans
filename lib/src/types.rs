@@ -17,8 +17,8 @@ impl Transaction {
         Transaction { inputs, outputs }
     }
 
-    pub fn hash(&self) -> ! {
-        unimplemented!()
+    pub fn hash(&self) -> Hash {
+        Hash::hash(self)
     }
 }
 
@@ -65,8 +65,8 @@ impl BlockHeader {
             target,
         }
     }
-    pub fn hash(&self) -> ! {
-        unimplemented!()
+    pub fn hash(&self) -> Hash {
+        Hash::hash(&self)
     }
 }
 
@@ -84,8 +84,8 @@ impl Block {
         }
     }
 
-    pub fn hash(&self) -> ! {
-        unimplemented!()
+    pub fn hash(&self) -> Hash {
+        Hash::hash(self)
     }
 }
 
