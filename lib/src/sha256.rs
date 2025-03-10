@@ -1,11 +1,11 @@
 use core::panic;
 
 use crate::U256;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha256::digest;
 use std::fmt;
 
-#[derive(Clone, Copy, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Hash(U256);
 
 impl Hash {
