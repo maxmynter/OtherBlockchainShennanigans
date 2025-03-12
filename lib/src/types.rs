@@ -325,7 +325,7 @@ impl Blockchain {
             })
             .sum::<u64>();
         let all_outputs: u64 = transaction.outputs.iter().map(|output| output.value).sum();
-        if all_inputs < all_inputs {
+        if all_inputs < all_outputs {
             return Err(BtcError::InvalidTransaction);
         }
 
