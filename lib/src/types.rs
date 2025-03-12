@@ -219,22 +219,34 @@ impl Block {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Blockchain {
-    pub utxos: HashMap<Hash, TransactionOutput>,
-    pub target: U256,
-    pub blocks: Vec<Block>,
+    utxos: HashMap<Hash, TransactionOutput>,
+    target: U256,
+    blocks: Vec<Block>,
 }
 
 impl Blockchain {
+    pub fn utxos(&self) -> &HashMap<Hash, TransactionOutput> {
+        &self.utxos
+    }
+
+    pub fn target(&self) -> U256 {
+        self.target
+    }
+
+    pub fn blocks(&self) -> impl Iterator<Item = &Block> {
+        self.blocks.iter()
+    }
+
+    pub fn block_height(&self) -> u64 {
+        self.blocks.len() as u64
+    }
+
     pub fn new() -> Self {
         Blockchain {
             blocks: vec![],
             utxos: HashMap::new(),
             target: crate::MIN_TARGET,
         }
-    }
-
-    pub fn block_height(&self) -> u64 {
-        self.blocks.len() as u64
     }
 
     pub fn add_block(&mut self, block: Block) -> Result<()> {
