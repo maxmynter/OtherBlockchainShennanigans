@@ -73,6 +73,23 @@ impl BlockHeader {
     pub fn hash(&self) -> Hash {
         Hash::hash(&self)
     }
+    pub fn mine(&mut self, steps: usize) -> bool {
+        if self.hash().matches_target(self.target) {
+            return true;
+        }
+        for _ in 0..steps {
+            if let Some(new_nonce) = self.nonce.checked_add(1) {
+                self.nonce = new_nonce;
+            } else {
+                self.nonce = 0;
+                self.timestamp = Utc::now();
+            }
+            if self.hash().matches_target(self.target) {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -272,6 +289,7 @@ impl Blockchain {
         let time_diff = end_time - start_time;
         let time_diff_seconds = time_diff.num_seconds();
         let target_seconds = crate::IDEAL_BLOCK_TIME * crate::DIFFICULTY_UPDATE_INTERVAL;
+
         let new_target = BigDecimal::parse_bytes(&self.target.to_string().as_bytes(), 10)
             .expect("Bug: Impossible")
             * BigDecimal::from(time_diff_seconds)
