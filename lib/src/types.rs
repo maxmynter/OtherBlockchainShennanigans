@@ -6,6 +6,7 @@ use crate::error::{BtcError, Result};
 use crate::sha256::Hash;
 use crate::util::MerkleRoot;
 use crate::U256;
+use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -271,7 +272,17 @@ impl Blockchain {
         let time_diff = end_time - start_time;
         let time_diff_seconds = time_diff.num_seconds();
         let target_seconds = crate::IDEAL_BLOCK_TIME * crate::DIFFICULTY_UPDATE_INTERVAL;
-        let new_target = self.target * (time_diff_seconds as f64 / target_seconds as f64) as usize;
+        let new_target = BigDecimal::parse_bytes(&self.target.to_string().as_bytes(), 10)
+            .expect("Bug: Impossible")
+            * BigDecimal::from(time_diff_seconds)
+            / BigDecimal::from(target_seconds);
+        let new_taret_str = new_target
+            .to_string()
+            .split('.')
+            .next()
+            .expect("Bug: Expected decimal separator")
+            .to_owned();
+        let new_target: U256 = U256::from_str_radix(&new_taret_str, 10).expect("Bug: Impossible");
 
         // Clamp new_target range
         let new_target = if new_target < self.target / 4 {
