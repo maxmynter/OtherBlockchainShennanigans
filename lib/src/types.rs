@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::usize;
 
 use crate::crypto::{PublicKey, Signature};
 use crate::error::{BtcError, Result};
@@ -201,6 +202,7 @@ impl Block {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Blockchain {
     pub utxos: HashMap<Hash, TransactionOutput>,
+    pub target: U256,
     pub blocks: Vec<Block>,
 }
 
@@ -209,6 +211,7 @@ impl Blockchain {
         Blockchain {
             blocks: vec![],
             utxos: HashMap::new(),
+            target: crate::MIN_TARGET,
         }
     }
 
@@ -244,8 +247,42 @@ impl Blockchain {
 
             block.verify_transactions(self.block_height(), &self.utxos)?;
         }
+        let block_transaction: HashSet<_> = block.transactions.iter().map(|tx| tx.hash()).collect();
+        self.mempool
+            .retain(|(_, tx)| !block_transaction.contains(&tx.hash()));
         self.blocks.push(block);
+        self.try_adjust_target();
         Ok(())
+    }
+
+    pub fn try_adjust_target(&mut self) {
+        if self.blocks.is_empty() {
+            return;
+        }
+        if self.blocks.len() % crate::DIFFICULTY_UPDATE_INTERVAL as usize != 0 {
+            return;
+        }
+
+        let start_time = self.blocks
+            [self.blocks.len() - crate::DIFFICULTY_UPDATE_INTERVAL as usize]
+            .header
+            .timestamp;
+        let end_time = self.blocks.last().unwrap().header.timestamp;
+        let time_diff = end_time - start_time;
+        let time_diff_seconds = time_diff.num_seconds();
+        let target_seconds = crate::IDEAL_BLOCK_TIME * crate::DIFFICULTY_UPDATE_INTERVAL;
+        let new_target = self.target * (time_diff_seconds as f64 / target_seconds as f64) as usize;
+
+        // Clamp new_target range
+        let new_target = if new_target < self.target / 4 {
+            self.target / 4
+        } else if new_target > self.target * 4 {
+            self.target * 4
+        } else {
+            new_target
+        };
+
+        self.target = new_target.min(crate::MIN_TARGET);
     }
 
     pub fn rebuild_utxos(&mut self) {
