@@ -113,7 +113,7 @@ impl Block {
     pub fn verify_coinbase_transaction(
         &self,
         predicted_block_height: u64,
-        utxos: &HashMap<Hash, TransactionOutput>,
+        utxos: &HashMap<Hash, (bool, TransactionOutput)>,
     ) -> Result<()> {
         let coinbase_transaction = &self.transactions[0];
 
@@ -141,13 +141,18 @@ impl Block {
         Ok(())
     }
 
-    pub fn calculate_miner_fees(&self, utxos: &HashMap<Hash, TransactionOutput>) -> Result<u64> {
+    pub fn calculate_miner_fees(
+        &self,
+        utxos: &HashMap<Hash, (bool, TransactionOutput)>,
+    ) -> Result<u64> {
         let inputs: HashMap<Hash, TransactionOutput> = HashMap::new();
         let mut outputs: HashMap<Hash, TransactionOutput> = HashMap::new();
 
         for tx in self.transactions.iter().skip(1) {
             for input in &tx.inputs {
-                let prev_output = utxos.get(&input.prev_transaction_output_hash);
+                let prev_output = utxos
+                    .get(&input.prev_transaction_output_hash)
+                    .map(|(_, output)| output);
                 if prev_output.is_none() {
                     return Err(BtcError::InvalidTransaction);
                 }
@@ -172,7 +177,7 @@ impl Block {
     pub fn verify_transactions(
         &self,
         predicted_block_height: u64,
-        utxos: &HashMap<Hash, TransactionOutput>,
+        utxos: &HashMap<Hash, (bool, TransactionOutput)>,
     ) -> Result<()> {
         let mut inputs: HashMap<Hash, TransactionOutput> = HashMap::new();
         if self.transactions.is_empty() {
@@ -184,7 +189,9 @@ impl Block {
             let mut input_value = 0;
             let mut output_value = 0;
             for input in &transaction.inputs {
-                let prev_output = utxos.get(&input.prev_transaction_output_hash);
+                let prev_output = utxos
+                    .get(&input.prev_transaction_output_hash)
+                    .map(|(_, output)| output);
                 if prev_output.is_none() {
                     return Err(BtcError::InvalidTransaction);
                 }
@@ -219,13 +226,16 @@ impl Block {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Blockchain {
-    utxos: HashMap<Hash, TransactionOutput>,
+    utxos: HashMap<Hash, (bool, TransactionOutput)>,
     target: U256,
     blocks: Vec<Block>,
+
+    #[serde(default, skip_serializing)]
+    mempool: Vec<Transaction>,
 }
 
 impl Blockchain {
-    pub fn utxos(&self) -> &HashMap<Hash, TransactionOutput> {
+    pub fn utxos(&self) -> &HashMap<Hash, (bool, TransactionOutput)> {
         &self.utxos
     }
 
@@ -246,6 +256,7 @@ impl Blockchain {
             blocks: vec![],
             utxos: HashMap::new(),
             target: crate::MIN_TARGET,
+            mempool: vec![],
         }
     }
 
@@ -277,11 +288,64 @@ impl Blockchain {
 
             block.verify_transactions(self.block_height(), &self.utxos)?;
         }
+
         let block_transaction: HashSet<_> = block.transactions.iter().map(|tx| tx.hash()).collect();
         self.mempool
-            .retain(|(_, tx)| !block_transaction.contains(&tx.hash()));
+            .retain(|tx| !block_transaction.contains(&tx.hash()));
         self.blocks.push(block);
         self.try_adjust_target();
+        Ok(())
+    }
+
+    pub fn mempool(&self) -> &[Transaction] {
+        &self.mempool
+    }
+
+    pub fn add_to_mempool(&mut self, transaction: Transaction) -> Result<()> {
+        let mut known_inputs = HashSet::new();
+        for input in &transaction.inputs {
+            if !self.utxos.contains_key(&input.prev_transaction_output_hash) {
+                return Err(BtcError::InvalidTransaction);
+            }
+            if known_inputs.contains(&input.prev_transaction_output_hash) {
+                return Err(BtcError::InvalidTransaction);
+            }
+            known_inputs.insert(input.prev_transaction_output_hash);
+        }
+
+        let all_inputs = transaction
+            .inputs
+            .iter()
+            .map(|input| {
+                self.utxos
+                    .get(&input.prev_transaction_output_hash)
+                    .expect("Bug Impossible")
+                    .1
+                    .value
+            })
+            .sum::<u64>();
+        let all_outputs: u64 = transaction.outputs.iter().map(|output| output.value).sum();
+        if all_inputs < all_inputs {
+            return Err(BtcError::InvalidTransaction);
+        }
+
+        self.mempool.push(transaction);
+        self.mempool.sort_by_key(|tx| {
+            let all_inputs = tx
+                .inputs
+                .iter()
+                .map(|input| {
+                    self.utxos
+                        .get(&input.prev_transaction_output_hash)
+                        .expect("Bug Impossible")
+                        .1
+                        .value
+                })
+                .sum::<u64>();
+            let all_outputs: u64 = tx.outputs.iter().map(|output| output.value).sum();
+            let miner_fee = all_inputs - all_outputs;
+            miner_fee
+        });
         Ok(())
     }
 
@@ -333,7 +397,8 @@ impl Blockchain {
                     self.utxos.remove(&input.prev_transaction_output_hash);
                 }
                 for output in transaction.outputs.iter() {
-                    self.utxos.insert(transaction.hash(), output.clone());
+                    self.utxos
+                        .insert(transaction.hash(), (false, output.clone()));
                 }
             }
         }
