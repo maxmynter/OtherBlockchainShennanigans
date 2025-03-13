@@ -231,7 +231,7 @@ pub struct Blockchain {
     blocks: Vec<Block>,
 
     #[serde(default, skip_serializing)]
-    mempool: Vec<Transaction>,
+    mempool: Vec<(DateTime<Utc>, Transaction)>,
 }
 
 impl Blockchain {
@@ -291,13 +291,13 @@ impl Blockchain {
 
         let block_transaction: HashSet<_> = block.transactions.iter().map(|tx| tx.hash()).collect();
         self.mempool
-            .retain(|tx| !block_transaction.contains(&tx.hash()));
+            .retain(|(_, tx)| !block_transaction.contains(&tx.hash()));
         self.blocks.push(block);
         self.try_adjust_target();
         Ok(())
     }
 
-    pub fn mempool(&self) -> &[Transaction] {
+    pub fn mempool(&self) -> &[(DateTime<Utc>, Transaction)] {
         &self.mempool
     }
 
@@ -316,13 +316,16 @@ impl Blockchain {
         for input in &transaction.inputs {
             if let Some((true, _)) = self.utxos.get(&input.prev_transaction_output_hash) {
                 let referencing_transaction =
-                    self.mempool.iter().enumerate().find(|(_, transaction)| {
-                        transaction
-                            .outputs
-                            .iter()
-                            .any(|output| output.hash() == input.prev_transaction_output_hash)
-                    });
-                if let Some((idx, referencing_transaction)) = referencing_transaction {
+                    self.mempool
+                        .iter()
+                        .enumerate()
+                        .find(|(_, (_, transaction))| {
+                            transaction
+                                .outputs
+                                .iter()
+                                .any(|output| output.hash() == input.prev_transaction_output_hash)
+                        });
+                if let Some((idx, (_, referencing_transaction))) = referencing_transaction {
                     for input in &referencing_transaction.inputs {
                         self.utxos
                             .entry(input.prev_transaction_output_hash)
@@ -356,9 +359,16 @@ impl Blockchain {
         if all_inputs < all_outputs {
             return Err(BtcError::InvalidTransaction);
         }
+        for input in &transaction.inputs {
+            self.utxos
+                .entry(input.prev_transaction_output_hash)
+                .and_modify(|(marked, _)| {
+                    *marked = true;
+                });
+        }
 
-        self.mempool.push(transaction);
-        self.mempool.sort_by_key(|tx| {
+        self.mempool.push((Utc::now(), transaction));
+        self.mempool.sort_by_key(|(_, tx)| {
             let all_inputs = tx
                 .inputs
                 .iter()
@@ -416,6 +426,31 @@ impl Blockchain {
         };
 
         self.target = new_target.min(crate::MIN_TARGET);
+    }
+
+    pub fn cleanup_mempool(&mut self) {
+        let now = Utc::now();
+        let mut utxo_hashes_to_unmark: Vec<Hash> = vec![];
+        self.mempool.retain(|(timestamp, transaction)| {
+            if now - *timestamp
+                > chrono::Duration::seconds(crate::MAX_MEMPOOL_TRANSACTION_AGE as i64)
+            {
+                utxo_hashes_to_unmark.extend(
+                    transaction
+                        .inputs
+                        .iter()
+                        .map(|input| input.prev_transaction_output_hash),
+                );
+                false
+            } else {
+                true
+            }
+        });
+        for hash in utxo_hashes_to_unmark {
+            self.utxos.entry(hash).and_modify(|(marked, _)| {
+                *marked = false;
+            });
+        }
     }
 
     pub fn rebuild_utxos(&mut self) {
