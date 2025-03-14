@@ -1,10 +1,37 @@
+use anyhow::{anyhow, Result};
 use btclib::crypto::PublicKey;
 use btclib::network::Message;
 use btclib::types::Block;
 use btclib::util::Saveable;
-use std::env;
+use clap::Parser;
 use std::process::exit;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+use std::{env, thread};
 use tokio::net::TcpStream;
+use tokio::sync::Mutex;
+use tokio::time::{interval, Duration};
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = "None")]
+struct Cli {
+    #[arg(short, long)]
+    address: String,
+    #[arg(short, long)]
+    public_key_file: String,
+}
+
+struct Miner;
+impl Miner {
+    async fn new(address: String, public_key: PublicKey) -> Result<Self> {}
+    async fn run(&self) -> Result<()> {}
+    fn spawn_mining_thread(&self) -> thread::JoinHandle<()> {}
+    async fn fetch_template(&self) -> Result<()> {}
+    async fn validate_template(&self) -> Result<()> {}
+    async fn submit_block(&self, block: Block) -> Result<()> {}
+}
 
 fn usage() -> ! {
     eprintln!(
@@ -15,18 +42,10 @@ fn usage() -> ! {
 }
 
 #[tokio::main]
-async fn main() {
-    let address = match env::args().nth(1) {
-        Some(address) => address,
-        None => usage(),
-    };
-    let public_key_file = match env::args().nth(2) {
-        Some(public_key_file) => public_key_file,
-        None => usage(),
-    };
-    let Ok(public_key) = PublicKey::load_from_file(&public_key_file) else {
-        eprintln!("Error reading public key file {}", public_key_file);
-        exit(1);
-    };
-    println!("Connecting to {address} to mine with {public_key:?}")
+async fn main() -> Result<()> {
+    let cli = Cli::parse();
+    let public_key = PublicKey::load_from_file(&cli.public_key_file)
+        .map_err(|e| anyhow!("Error loading public key: {}", e))?;
+    let miner = Miner::new(cli.address, public_key).await?;
+    miner.run().await
 }
