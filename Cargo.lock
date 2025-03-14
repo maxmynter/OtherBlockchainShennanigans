@@ -117,6 +117,7 @@ dependencies = [
  "rand",
  "serde",
  "sha256",
+ "spki",
  "thiserror",
  "uint",
  "uuid",
@@ -478,7 +479,6 @@ name = "miner"
 version = "0.1.0"
 dependencies = [
  "btclib",
- "spki",
  "tokio",
 ]
 

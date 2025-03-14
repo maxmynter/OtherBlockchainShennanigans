@@ -5,5 +5,4 @@ edition = "2021"
 
 [dependencies]
 btclib ={ path = "../lib"}
-spki = { version = "0.7.3", features = ["pem"] }
 tokio = { version = "1.44.1", features = ["full"] }
