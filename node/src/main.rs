@@ -59,5 +59,13 @@ async fn main() -> Result<()> {
             }
         }
     }
-    Ok(())
+    let addr = format!("0.0.0.0:{}", port);
+    let listener = TcpListener::bind(&addr).await?;
+    println!("Listening on {}", addr);
+    tokio::spawn(util::cleanup());
+    tokio::spawn(util::save(blockchain_file.clone()));
+    loop {
+        let (socket, _) = listener.accept().await?;
+        tokio::spawn(handler::handle_connection(socket));
+    }
 }

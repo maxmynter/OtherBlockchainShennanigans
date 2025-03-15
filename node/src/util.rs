@@ -23,7 +23,7 @@ pub async fn load_blockchain(blockchain_file: &str) -> Result<()> {
     Ok(())
 }
 
-pub async fn find_longest_chain_node() -> Result<()> {
+pub async fn find_longest_chain_node() -> Result<(String, u32)> {
     println!("finding nodes with the highest blockchain length");
     let mut longest_name = String::new();
     let mut longest_count = 0;
@@ -56,7 +56,7 @@ pub async fn find_longest_chain_node() -> Result<()> {
             }
         }
     }
-    Ok(())
+    Ok((longest_name, longest_count as u32))
 }
 
 pub async fn download_blockchain(node: &str, count: u32) -> Result<()> {
@@ -101,4 +101,24 @@ pub async fn populate_connections(nodes: &[String]) -> Result<()> {
         crate::NODES.insert(node.clone(), stream);
     }
     Ok(())
+}
+
+pub async fn cleanup() {
+    let mut interval = time::interval(time::Duration::from_secs(30));
+    loop {
+        interval.tick().await;
+        println!("cleaning the mempool from old transactions");
+        let mut blockchain = crate::BLOCKCHAIN.write().await;
+        blockchain.cleanup_mempool();
+    }
+}
+
+pub async fn save(name: String) {
+    let mut interval = time::interval(time::Duration::from_secs(15));
+    loop {
+        interval.tick().await;
+        println!("Saving blockchain to drive...");
+        let blockchain = crate::BLOCKCHAIN.read().await;
+        blockchain.save_to_file(name.clone()).unwrap();
+    }
 }
