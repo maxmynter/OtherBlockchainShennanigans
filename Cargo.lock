@@ -740,6 +740,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "argh",
+ "btclib",
  "chrono",
  "dashmap",
  "static_init",
