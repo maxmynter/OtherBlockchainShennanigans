@@ -12,7 +12,7 @@ use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read, Result as IoResu
 pub struct Signature(ECDSASignature<Secp256k1>);
 
 impl Signature {
-    pub fn sign_output(output_hash: &Hash, private_key: PrivateKey) -> Self {
+    pub fn sign_output(output_hash: &Hash, private_key: &PrivateKey) -> Self {
         let signing_key = &private_key.0;
         let signature = signing_key.sign(&output_hash.as_bytes());
         Signature(signature)
@@ -26,7 +26,7 @@ impl Signature {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PublicKey(VerifyingKey<Secp256k1>);
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
