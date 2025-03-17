@@ -33,7 +33,7 @@ enum Commands {
 }
 
 async fn update_utxos(core: Arc<Core>) {
-    let mut intervale = time::interval(Duration::from_secs(20));
+    let mut interval = time::interval(Duration::from_secs(20));
     loop {
         interval.tick().await;
         if let Err(e) = core.fetch_utxos().await {
@@ -82,7 +82,8 @@ async fn run_cli(core: Arc<Core>) -> Result<()> {
                 if let Err(e) = core.fetch_utxos().await {
                     println!("failed to fetch utxos: {e}");
                 };
-                let Transaction = core.fetch_utxos(&recipient_key, amount).await?;
+                let transaction = core.create_transaction(&recipient_key, amount).await?;
+                core.tx_sender.send(transaction).await?;
                 println!("Transaction sent successfully");
                 core.fetch_utxos().await?;
             }
@@ -106,7 +107,7 @@ fn generate_dummy_config(path: &PathBuf) -> Result<()> {
             value: 0.1,
         },
     };
-    let config_str = toml::to_string_pretty(&dummy_config);
+    let config_str = toml::to_string_pretty(&dummy_config)?;
     fs::write(path, config_str)?;
     println!("Dummy config generated at: {}", path.display());
     Ok(())
