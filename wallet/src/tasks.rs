@@ -1,6 +1,7 @@
 use crate::core::Core;
 use crate::ui::run_ui;
 use crate::util::big_mode_btc;
+use crate::utils::big_mode_btc;
 use btclib::types::Transaction;
 use cursive::views::TextContent;
 use std::sync::Arc;
@@ -29,6 +30,25 @@ pub async fn handle_transactions(
             if let Err(e) = core.send_transaction(transaction).await {
                 error!("Failed to send transaction: {}", e);
             }
+        }
+    })
+}
+
+pub async fn ui_task(core: Arc<Core>, balance_content: TextContent) -> JointHandle<()> {
+    tokio::task::spawn_blocking(move || {
+        info!("Running UI");
+        if let Err(e) = run_ui(core, balance_content) {
+            eprintln!("UI ends with error: {e}");
+        };
+    })
+}
+
+pub async fn update_balance(core: Arc<Core>, balance_content: TextContent) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            info!("updating balance string");
+            balance_content.set_content(big_mode_btc(&core));
         }
     })
 }
