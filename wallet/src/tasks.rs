@@ -1,6 +1,5 @@
 use crate::core::Core;
 use crate::ui::run_ui;
-use crate::util::big_mode_btc;
 use crate::utils::big_mode_btc;
 use btclib::types::Transaction;
 use cursive::views::TextContent;
@@ -22,7 +21,7 @@ pub async fn update_utxos(core: Arc<Core>) -> JoinHandle<()> {
 }
 
 pub async fn handle_transactions(
-    rx: kanal::AnsyncReceiver<Transaction>,
+    rx: kanal::AsyncReceiver<Transaction>,
     core: Arc<Core>,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
@@ -34,7 +33,7 @@ pub async fn handle_transactions(
     })
 }
 
-pub async fn ui_task(core: Arc<Core>, balance_content: TextContent) -> JointHandle<()> {
+pub async fn ui_task(core: Arc<Core>, balance_content: TextContent) -> JoinHandle<()> {
     tokio::task::spawn_blocking(move || {
         info!("Running UI");
         if let Err(e) = run_ui(core, balance_content) {
