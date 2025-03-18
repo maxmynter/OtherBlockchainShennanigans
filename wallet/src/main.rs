@@ -1,5 +1,6 @@
 mod core;
 mod tasks;
+mod ui;
 mod utils;
 
 use anyhow::Result;
