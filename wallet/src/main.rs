@@ -1,15 +1,17 @@
 mod core;
+mod utils;
 
 use anyhow::Result;
 use btclib::types::Transaction;
 use clap::{Parser, Subcommand};
-use core::{Config, Core, FeeConfig, FeeType, Recipient};
+use core::Core;
 use kanal;
-use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::time::{self, Duration};
+use tracing::*;
+use utils::generate_dummy_config;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -82,8 +84,8 @@ async fn run_cli(core: Arc<Core>) -> Result<()> {
                 if let Err(e) = core.fetch_utxos().await {
                     println!("failed to fetch utxos: {e}");
                 };
-                let transaction = core.create_transaction(&recipient_key, amount).await?;
-                core.tx_sender.send(transaction).await?;
+                let transaction = core.create_transaction(&recipient_key, amount)?;
+                core.tx_sender.send(transaction);
                 println!("Transaction sent successfully");
                 core.fetch_utxos().await?;
             }
@@ -91,25 +93,6 @@ async fn run_cli(core: Arc<Core>) -> Result<()> {
             _ => println!("Unkown command"),
         }
     }
-    Ok(())
-}
-
-fn generate_dummy_config(path: &PathBuf) -> Result<()> {
-    let dummy_config = Config {
-        my_keys: vec![],
-        contacts: vec![Recipient {
-            name: "Alice".to_string(),
-            key: PathBuf::from("alice.pub.pem"),
-        }],
-        default_node: "127.0.0.1:9000".to_string(),
-        fee_config: FeeConfig {
-            fee_type: FeeType::Percent,
-            value: 0.1,
-        },
-    };
-    let config_str = toml::to_string_pretty(&dummy_config)?;
-    fs::write(path, config_str)?;
-    println!("Dummy config generated at: {}", path.display());
     Ok(())
 }
 
@@ -125,12 +108,12 @@ async fn main() -> Result<()> {
     let config_path = cli
         .config
         .unwrap_or_else(|| PathBuf::from("wallet_config.toml"));
-    let mut core = Core::load(config_path.clone())?;
+    let mut core = Core::load(config_path.clone()).await?;
     if let Some(node) = cli.node {
         core.config.default_node = node;
     }
     let (tx_sender, tx_receiver) = kanal::bounded(10);
-    core.tx_sender = tx_sender.clone_async();
+    core.tx_sender = tx_sender.clone();
     let core = Arc::new(core);
     tokio::spawn(update_utxos(core.clone()));
     tokio::spawn(handle_transactions(tx_receiver.clone_async(), core.clone()));
