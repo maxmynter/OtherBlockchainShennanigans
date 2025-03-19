@@ -174,14 +174,14 @@ impl Core {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Key {
-    public: PathBuf,
-    private: PathBuf,
+    pub public: PathBuf,
+    pub private: PathBuf,
 }
 
 #[derive(Clone)]
 struct LoadedKey {
-    public: PublicKey,
-    private: PrivateKey,
+    pub public: PublicKey,
+    pub private: PrivateKey,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

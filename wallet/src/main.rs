@@ -11,7 +11,6 @@ use kanal;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tasks;
 use tokio::time::{self, Duration};
 use tracing::*;
 use utils::generate_dummy_config;
