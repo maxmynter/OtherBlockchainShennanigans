@@ -7,8 +7,6 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use core::Core;
 use cursive::views::TextContent;
-use kanal;
-use std::io::{self, Write};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tasks::{handle_transactions, ui_task, update_balance, update_utxos};
@@ -35,50 +33,6 @@ enum Commands {
         #[arg(short, long, value_name = "FILE", default_value_os_t = PathBuf::from("wallet_config.toml"))]
         output: PathBuf,
     },
-}
-
-async fn run_cli(core: Arc<Core>) -> Result<()> {
-    loop {
-        print!(">");
-        io::stdout().flush()?;
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
-        let parts: Vec<&str> = input.trim().split_whitespace().collect();
-        if parts.is_empty() {
-            continue;
-        }
-        match parts[0] {
-            "balance" => {
-                println!("Current balancd: {} satoshis", core.get_balance());
-            }
-            "send" => {
-                if parts.len() != 3 {
-                    println!("Usagee: send <recipient> <amount>");
-                    continue;
-                }
-                let recipient = parts[1];
-                let amount: u64 = parts[2].parse()?;
-                let recipient_key = core
-                    .config
-                    .contacts
-                    .iter()
-                    .find(|r| r.name == recipient)
-                    .ok_or_else(|| anyhow::anyhow!("Recipient not found"))?
-                    .load()?
-                    .key;
-                if let Err(e) = core.fetch_utxos().await {
-                    println!("failed to fetch utxos: {e}");
-                };
-                let transaction = core.create_transaction(&recipient_key, amount)?;
-                core.tx_sender.send(transaction);
-                println!("Transaction sent successfully");
-                core.fetch_utxos().await?;
-            }
-            "exit" => break,
-            _ => println!("Unkown command"),
-        }
-    }
-    Ok(())
 }
 
 #[tokio::main]

@@ -3,7 +3,6 @@ use anyhow::Result;
 use std::fs;
 use std::panic;
 use std::path::PathBuf;
-use text_to_ascii_art;
 use tracing::*;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
