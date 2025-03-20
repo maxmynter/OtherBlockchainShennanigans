@@ -1,7 +1,7 @@
 mod handler;
 mod util;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use argh::FromArgs;
 use btclib::types::Blockchain;
 use dashmap::DashMap;

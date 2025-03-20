@@ -1,6 +1,6 @@
 use btclib::network::Message;
 use btclib::sha256::Hash;
-use btclib::types::{Block, BlockHeader, Blockchain, Transaction, TransactionOutput};
+use btclib::types::{Block, BlockHeader, Transaction, TransactionOutput};
 use btclib::util::MerkleRoot;
 use chrono::Utc;
 use tokio::net::TcpStream;
@@ -23,7 +23,7 @@ pub async fn handle_connection(mut socket: TcpStream) {
             }
             FetchBlock(height) => {
                 let blockchain = crate::BLOCKCHAIN.read().await;
-                let Some(block) = blockchain.blocks().nth(height as usize).cloned() else {
+                let Some(block) = blockchain.blocks().nth(height).cloned() else {
                     return;
                 };
                 let message = NewBlock(block);
